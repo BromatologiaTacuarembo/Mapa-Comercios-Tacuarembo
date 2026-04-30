@@ -90,6 +90,17 @@
   .leaflet-popup-content{margin:0 !important;font-family:'DM Sans',sans-serif !important;}
   .popup-inner{padding:16px 18px;}
   .popup-rubro{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:1px;padding:3px 10px;border-radius:6px;display:inline-block;margin-bottom:6px;color:#fff;}
+  .popup-noreg{background:rgba(220,38,38,0.15);border:1px solid rgba(220,38,38,0.3);border-radius:10px;padding:4px 10px;margin-bottom:8px;display:flex;align-items:center;gap:6px;font-size:12px;color:#ef4444;font-weight:700;}
+  .popup-fecha{font-size:12px;color:rgba(255,255,255,0.4);margin-bottom:4px;}
+  .popup-vermas{display:inline-block;margin-top:8px;padding:6px 14px;background:rgba(59,130,246,0.2);border:1px solid rgba(59,130,246,0.4);border-radius:8px;color:#60a5fa;font-size:12px;font-weight:600;text-decoration:none;transition:all 0.2s;}
+  .popup-vermas:hover{background:rgba(59,130,246,0.3);border-color:#60a5fa;}
+  .noreg-toggle{display:flex;align-items:center;gap:10px;padding:10px 20px;cursor:pointer;transition:background 0.15s;user-select:none;border-bottom:1px solid rgba(255,255,255,0.06);}
+  .noreg-toggle:hover{background:rgba(255,255,255,0.03);}
+  .noreg-toggle .noreg-icon{font-size:18px;width:28px;text-align:center;}
+  .noreg-toggle .noreg-label{font-size:14px;font-weight:600;color:rgba(239,68,68,0.8);flex:1;}
+  .noreg-toggle .noreg-count{font-size:12px;font-weight:600;color:rgba(255,255,255,0.3);background:rgba(239,68,68,0.1);padding:2px 8px;border-radius:10px;}
+  .noreg-toggle.inactive .noreg-icon{opacity:0.25;}
+  .noreg-toggle.inactive .noreg-label{opacity:0.35;}
   .popup-cm{font-size:12px;color:rgba(255,255,255,0.4);margin-left:6px;}
   .popup-name{font-size:17px;font-weight:700;color:#fff;margin-bottom:4px;}
   .popup-address{font-size:14px;color:rgba(255,255,255,0.5);margin-bottom:3px;}
@@ -159,6 +170,11 @@
     <div class="data-status" id="dataStatus">—</div>
     <input type="text" class="search-box" id="searchBox" placeholder="Buscar por CM, nombre, dirección, contribuyente...">
   </div>
+  <div class="noreg-toggle" id="noRegToggle">
+    <span class="noreg-icon">✕</span>
+    <span class="noreg-label">No registrados</span>
+    <span class="noreg-count" id="noRegCount">—</span>
+  </div>
   <div class="tabs">
     <div class="tab active" data-tab="list">Lista de Comercios</div>
     <div class="tab" data-tab="filter">Filtros por Rubro</div>
@@ -170,7 +186,9 @@
       <div id="filterList"></div>
     </div>
   </div>
-  <!-- Autor: Jose Menendez --><div class="credit">Creado por <span>Neuromante</span> · 2026</div>
+  <!-- Este contenido fue creado por Jose Menendez -->
+  <!-- © 2026 Jose Menendez. Todos los derechos reservados. Prohibida su copia y redistribución sin autorización. -->
+  <div class="credit">Creado por <span>Neuromante</span> · 2026</div>
 </div>
 
 <div id="map" class="dark-tiles"></div>
@@ -192,6 +210,8 @@
 // CONFIGURACIÓN — tu link de Google Sheets CSV
 // =============================================
 const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQFfCLpcdY6cKTUf7o4g3_IzcWjERWWgrg9bl46HRK4Bb2gMq7UTLR6Z4GpcKO5PGJPxCuB0DaHu-nl/pub?gid=593815713&single=true&output=csv';
+const NOREG_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRMcB2aLu_QZUZkYPfuNbmarKd1DwfbRq9_HrI7cE7QbPrJtUL_Ccd-GN42CZEz3A/pub?gid=1059005867&single=true&output=csv';
+const NOREG_SHEET_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRMcB2aLu_QZUZkYPfuNbmarKd1DwfbRq9_HrI7cE7QbPrJtUL_Ccd-GN42CZEz3A/pubhtml?gid=1059005867';
 const COLORS = {
   'ALMACEN':'#6ee7b7','TRAILER':'#fbbf24','AUTOSERVICE':'#60a5fa',
   'VENTA DE COMIDAS AL PASO':'#f87171','PANADERIA':'#c084fc','QUIOSCO':'#fb923c',
@@ -266,6 +286,12 @@ const clusterGroup = L.markerClusterGroup({
   }
 });
 map.addLayer(clusterGroup);
+
+// Capa de no registrados
+const noRegLayer = L.layerGroup();
+let noRegVisible = true;
+map.addLayer(noRegLayer);
+const noRegIcon = L.divIcon({html:'<div style="width:28px;height:28px;border-radius:50%;background:rgba(220,38,38,0.9);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:900;color:#fff;border:2px solid #fff;box-shadow:0 2px 8px rgba(220,38,38,0.5);">✕</div>',className:'',iconSize:[28,28],iconAnchor:[14,14],popupAnchor:[0,-14]});
 
 // =============================================
 // CSV → DATA
@@ -443,7 +469,7 @@ let allVis=true;
 document.getElementById('toggleAll').addEventListener('click',()=>{allVis=!allVis;document.getElementById('filterList').querySelectorAll('.filter-item').forEach(i=>{const c=i.querySelector('.filter-name').textContent;if(allVis){activeCategories.add(c);i.classList.remove('inactive');}else{activeCategories.delete(c);i.classList.add('inactive');}});refreshAll();});
 
 document.getElementById('searchBox').addEventListener('input',e=>{searchQuery=e.target.value.toLowerCase().trim();refreshAll();});
-document.getElementById('btnRefresh').addEventListener('click',loadData);
+document.getElementById('btnRefresh').addEventListener('click',()=>{loadData();loadNoRegistrados();});
 
 const mt=document.getElementById('mobileToggle');let pv=true;
 mt.addEventListener('click',()=>{pv=!pv;document.getElementById('leftPanel').classList.toggle('hidden');mt.textContent=pv?'Mostrar lista':'Ocultar lista';setTimeout(()=>map.invalidateSize(),300);});
@@ -498,9 +524,56 @@ const _origRefreshAll = refreshAll;
 refreshAll = function() { _origRefreshAll(); applyFontScale(); };
 
 // =============================================
+// NO REGISTRADOS
+// =============================================
+async function loadNoRegistrados(){
+  try{
+    const res=await fetch(NOREG_CSV_URL);if(!res.ok)throw new Error('HTTP '+res.status);
+    const csvText=await res.text();
+    const result=Papa.parse(csvText,{header:true,skipEmptyLines:true});
+    noRegLayer.clearLayers();
+    let count=0;
+    result.data.forEach(r=>{
+      const lat=parseFloat(r['Latitud']||r['Latitud ']);
+      const lng=parseFloat(r['Longitude']||r['Longitud']);
+      if(isNaN(lat)||isNaN(lng))return;
+      const fecha=(r['FECHA']||'').trim();
+      const titular=(r['NOMBRE TITULAR/Representante']||r['NOMBRE TITULAR']||'').trim();
+      const rut=(r['RUT']||'').trim();
+      const ci=(r['CÉDULA']||r['CEDULA']||'').trim();
+      const rubro=(r['RUBRO']||'').trim();
+      const direccion=(r['DIRECCIÓN']||r['DIRECCION']||'').trim();
+      const numero=(r['NUMERO']||r['Nº']||'').trim();
+      const nombre=(r['NOMBRE COMERCIO']||'').trim();
+      let h='<div class="popup-inner">';
+      h+='<div class="popup-noreg"><span>✕</span> NO REGISTRADO</div>';
+      if(fecha)h+='<div class="popup-fecha">Visitado: '+fecha+'</div>';
+      if(nombre)h+='<div class="popup-name">'+nombre+'</div>';
+      h+='<div class="popup-name" style="font-size:14px;color:rgba(255,255,255,0.7);">'+titular+'</div>';
+      if(rut||ci)h+='<div class="popup-address">RUT: '+(rut||'—')+' | CI: '+(ci||'—')+'</div>';
+      if(rubro)h+='<div class="popup-address">'+rubro+'</div>';
+      h+='<div class="popup-address">'+direccion+(numero?' '+numero:'')+'</div>';
+      h+='<a class="popup-vermas" href="'+NOREG_SHEET_URL+'" target="_blank">Ver más ↗</a>';
+      h+='</div>';
+      const marker=L.marker([lat,lng],{icon:noRegIcon}).bindPopup(h,{maxWidth:300});
+      noRegLayer.addLayer(marker);
+      count++;
+    });
+    document.getElementById('noRegCount').textContent=count;
+  }catch(err){console.warn('No registrados fetch failed:',err);}
+}
+
+document.getElementById('noRegToggle').addEventListener('click',()=>{
+  const el=document.getElementById('noRegToggle');
+  if(noRegVisible){map.removeLayer(noRegLayer);el.classList.add('inactive');noRegVisible=false;}
+  else{map.addLayer(noRegLayer);el.classList.remove('inactive');noRegVisible=true;}
+});
+
+// =============================================
 // INIT
 // =============================================
 loadData();
+loadNoRegistrados();
 </script>
 </body>
 </html>
