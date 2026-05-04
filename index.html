@@ -469,7 +469,7 @@ let allVis=true;
 document.getElementById('toggleAll').addEventListener('click',()=>{allVis=!allVis;document.getElementById('filterList').querySelectorAll('.filter-item').forEach(i=>{const c=i.querySelector('.filter-name').textContent;if(allVis){activeCategories.add(c);i.classList.remove('inactive');}else{activeCategories.delete(c);i.classList.add('inactive');}});refreshAll();});
 
 document.getElementById('searchBox').addEventListener('input',e=>{searchQuery=e.target.value.toLowerCase().trim();refreshAll();});
-document.getElementById('btnRefresh').addEventListener('click',()=>{loadData();loadNoRegistrados();});
+document.getElementById('btnRefresh').addEventListener('click',()=>{loadData().then(()=>loadNoRegistrados());});
 
 const mt=document.getElementById('mobileToggle');let pv=true;
 mt.addEventListener('click',()=>{pv=!pv;document.getElementById('leftPanel').classList.toggle('hidden');mt.textContent=pv?'Mostrar lista':'Ocultar lista';setTimeout(()=>map.invalidateSize(),300);});
@@ -532,15 +532,25 @@ async function loadNoRegistrados(){
     const csvText=await res.text();
     const result=Papa.parse(csvText,{header:true,skipEmptyLines:true});
     noRegLayer.clearLayers();
-    let count=0;
+    // Construir set de CI y RUT de registrados para cruce
+    const regCI=new Set();const regRUT=new Set();
+    DATA.forEach(d=>{
+      const ci=(d.ci||'').replace(/[^0-9]/g,'');if(ci.length>4)regCI.add(ci);
+      const rut=(d.rut||'').replace(/[^0-9]/g,'');if(rut.length>4)regRUT.add(rut);
+    });
+    let count=0,omitidos=0;
     result.data.forEach(r=>{
       const lat=parseFloat(r['Latitud']||r['Latitud ']);
       const lng=parseFloat(r['Longitude']||r['Longitud']);
       if(isNaN(lat)||isNaN(lng))return;
+      const ci=(r['CÉDULA']||r['CEDULA']||'').trim();
+      const rut=(r['RUT']||'').trim();
+      // Cruce: si CI o RUT coincide con un registrado, no mostrar
+      const ciNum=ci.replace(/[^0-9]/g,'');
+      const rutNum=rut.replace(/[^0-9]/g,'');
+      if((ciNum.length>4&&regCI.has(ciNum))||(rutNum.length>4&&regRUT.has(rutNum))){omitidos++;return;}
       const fecha=(r['FECHA']||'').trim();
       const titular=(r['NOMBRE TITULAR/Representante']||r['NOMBRE TITULAR']||'').trim();
-      const rut=(r['RUT']||'').trim();
-      const ci=(r['CÉDULA']||r['CEDULA']||'').trim();
       const rubro=(r['RUBRO']||'').trim();
       const direccion=(r['DIRECCIÓN']||r['DIRECCION']||'').trim();
       const numero=(r['NUMERO']||r['Nº']||'').trim();
@@ -560,6 +570,7 @@ async function loadNoRegistrados(){
       count++;
     });
     document.getElementById('noRegCount').textContent=count;
+    if(omitidos>0)console.log('No registrados: '+omitidos+' omitidos por estar ya registrados (cruce CI/RUT)');
   }catch(err){console.warn('No registrados fetch failed:',err);}
 }
 
@@ -572,8 +583,7 @@ document.getElementById('noRegToggle').addEventListener('click',()=>{
 // =============================================
 // INIT
 // =============================================
-loadData();
-loadNoRegistrados();
+loadData().then(()=>loadNoRegistrados());
 </script>
 </body>
 </html>
