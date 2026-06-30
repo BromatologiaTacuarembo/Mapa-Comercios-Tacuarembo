@@ -101,7 +101,7 @@
   .noreg-toggle .noreg-count{font-size:12px;font-weight:600;color:rgba(255,255,255,0.3);background:rgba(239,68,68,0.1);padding:2px 8px;border-radius:10px;}
   .noreg-toggle.inactive .noreg-icon{opacity:0.25;}
   .noreg-toggle.inactive .noreg-label{opacity:0.35;}
-  .popup-cm{font-size:12px;color:rgba(255,255,255,0.4);margin-left:6px;}
+  .popup-cm{font-size:15px;font-weight:700;color:#6ee7b7;background:rgba(110,231,183,0.1);padding:3px 10px;border-radius:6px;display:inline-block;margin-bottom:6px;}
   .popup-name{font-size:17px;font-weight:700;color:#fff;margin-bottom:4px;}
   .popup-address{font-size:14px;color:rgba(255,255,255,0.5);margin-bottom:3px;}
   .popup-row{font-size:13px;color:rgba(255,255,255,0.4);margin-bottom:2px;}
@@ -420,6 +420,17 @@ function buildMarkers(){
   DATA.forEach(d=>{
     const marker=L.marker([d.lat,d.lng],{icon:createIcon(COLORS[d.rubro]||'#94a3b8')});
     marker.bindPopup(buildPopup(d),{maxWidth:300});
+    marker.on('popupopen',()=>{
+      const card=document.querySelector(`.comercio-card[data-cm="${d.cm}"]`);
+      if(card){
+        if(selectedCard)selectedCard.classList.remove('selected');
+        card.classList.add('selected');selectedCard=card;
+        card.scrollIntoView({behavior:'smooth',block:'center'});
+        // Switch to list tab if on filter tab
+        const listTab=document.querySelector('.tab[data-tab="list"]');
+        if(listTab&&!listTab.classList.contains('active'))listTab.click();
+      }
+    });
     allItems.push({marker,data:d});
   });
 }
@@ -448,7 +459,7 @@ function createIcon(c){return L.divIcon({html:`<div style="width:14px;height:14p
 
 function buildPopup(d){
   const col=COLORS[d.rubro]||'#94a3b8';
-  let h=`<div class="popup-inner"><div><span class="popup-rubro" style="background:${col}33;color:${col};">${d.rubroOriginal}</span><span class="popup-cm">CM ${d.cm}</span></div><div class="popup-name">${d.nombre||'Sin nombre'}</div><div class="popup-address">${d.direccion}</div>`;
+  let h=`<div class="popup-inner"><div class="popup-cm">CM ${d.cm}</div><div><span class="popup-rubro" style="background:${col}33;color:${col};">${d.rubroOriginal}</span></div><div class="popup-name">${d.nombre||'Sin nombre'}</div><div class="popup-address">${d.direccion}</div>`;
   if(d.contribuyente)h+=`<div class="popup-row"><strong>Contribuyente:</strong> ${d.contribuyente}</div>`;
   if(d.ci)h+=`<div class="popup-row"><strong>CI:</strong> ${d.ci}</div>`;
   if(d.rut)h+=`<div class="popup-row"><strong>RUT:</strong> ${d.rut}</div>`;
@@ -479,7 +490,7 @@ function refreshAll(){
 
 function createCard(item){
   const d=item.data,col=COLORS[d.rubro]||'#94a3b8',card=document.createElement('div');
-  card.className='comercio-card';
+  card.className='comercio-card';card.setAttribute('data-cm',d.cm);
   let dh='';if(userLat!==null&&item._dist!==undefined)dh=`<span class="card-distance">📍 ${formatDist(item._dist)}</span>`;
   card.innerHTML=`<div class="card-top"><div class="card-dot" style="background:${col};"></div><span class="card-cm">CM ${d.cm}</span><span class="card-rubro">${d.rubroOriginal}</span>${dh}</div><div class="card-nombre">${d.nombre||'Sin nombre'}</div><div class="card-dir">${d.direccion}</div><div class="card-expand-hint"><span class="hint-closed">▼ Ver más datos</span><span class="hint-open">▲ Ocultar datos</span></div><div class="card-details">${d.contribuyente?`<div class="detail-row"><div class="detail-label">Contribuyente</div><div class="detail-value">${d.contribuyente}</div></div>`:''}${d.ci?`<div class="detail-row"><div class="detail-label">CI</div><div class="detail-value">${d.ci}</div></div>`:''}${d.rut?`<div class="detail-row"><div class="detail-label">RUT</div><div class="detail-value">${d.rut}</div></div>`:''}<div class="detail-row"><div class="detail-label">Coordenadas</div><div class="detail-value">${d.lat}, ${d.lng}</div></div><div class="card-goto">📍 Ir al mapa</div></div>`;
   card.addEventListener('click',e=>{
@@ -587,7 +598,7 @@ function applyFontScale() {
   // Scale popups
   document.querySelectorAll('.popup-inner').forEach(p => {
     p.querySelectorAll('.popup-rubro').forEach(el => el.style.fontSize = (12 * s) + 'px');
-    p.querySelectorAll('.popup-cm').forEach(el => el.style.fontSize = (12 * s) + 'px');
+    p.querySelectorAll('.popup-cm').forEach(el => el.style.fontSize = (15 * s) + 'px');
     p.querySelectorAll('.popup-name').forEach(el => el.style.fontSize = (17 * s) + 'px');
     p.querySelectorAll('.popup-address').forEach(el => el.style.fontSize = (14 * s) + 'px');
     p.querySelectorAll('.popup-row').forEach(el => el.style.fontSize = (13 * s) + 'px');
